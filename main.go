@@ -119,6 +119,14 @@ func HelloPubSub(ctx context.Context, m PubSubMessage) error {
 			Value: data.Source.RepoSource.RepoName,
 		},
 		&api.EmbedField{
+			Name:  "branchName",
+			Value: data.Substitutions.BranchName,
+		},
+		&api.EmbedField{
+			Name:  "triggerName",
+			Value: data.Substitutions.TriggerName,
+		},
+		&api.EmbedField{
 			Name:  "status",
 			Value: data.Status,
 		},
@@ -131,5 +139,6 @@ func HelloPubSub(ctx context.Context, m PubSubMessage) error {
 	if err := sendToDiscord(message, data.Status); err != nil {
 		return err
 	}
+
 	return nil
 }

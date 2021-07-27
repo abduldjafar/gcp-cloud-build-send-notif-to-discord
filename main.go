@@ -1,13 +1,14 @@
 // Package p contains a Pub/Sub Cloud Function.
-package main
+package p
 
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"time"
 
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/DisgoOrg/disgohook"
+	"github.com/DisgoOrg/disgohook/api"
+	"github.com/sirupsen/logrus"
 )
 
 type Data struct {
@@ -63,6 +64,40 @@ type PubSubMessage struct {
 	Data []byte `json:"data"`
 }
 
+func sendToDiscord(data []*api.EmbedField, status string) {
+	logger := logrus.New()
+	colours := map[string]int{}
+	colours["QUEUED"] = 15258703
+	colours["WORKING"] = 1127128
+	colours["DONE"] = 6606392
+	colours["FAILED"] = 14177041
+	colours["CANCELLED"] = 14177041
+	colours["TIMEOUT"] = 14177041
+
+	logger.SetLevel(logrus.DebugLevel)
+
+	webhook, err := disgohook.NewWebhookClientByToken(nil, logger, "webhook token")
+	if err != nil {
+		logger.Errorf("failed to create webhook: %s", err)
+
+	}
+	var colour int = colours[status]
+	var title string = "Build Status"
+
+	_, err = webhook.SendMessage(api.NewWebhookMessageCreateBuilder().
+		SetEmbeds(api.Embed{
+			Color:  &colour,
+			Title:  &title,
+			Fields: data,
+		}).
+		Build(),
+	)
+	if err != nil {
+		logger.Errorf("failed to send webhook message: %s", err)
+
+	}
+}
+
 // HelloPubSub consumes a Pub/Sub message.
 func HelloPubSub(ctx context.Context, m PubSubMessage) error {
 
@@ -70,18 +105,25 @@ func HelloPubSub(ctx context.Context, m PubSubMessage) error {
 	data := Data{}
 	json.Unmarshal([]byte(str_data), &data)
 
-	message := `
-	projectId : ` + data.Source.RepoSource.ProjectID + `,
-	repoName : ` + data.Source.RepoSource.RepoName + `,
-	status : ` + data.Status + `
-	`
-	bot, err := tgbotapi.NewBotAPI("telegram api")
-	if err != nil {
-		log.Panic(err)
+	message := []*api.EmbedField{
+		&api.EmbedField{
+			Name:  "projectId",
+			Value: data.Source.RepoSource.ProjectID,
+		},
+		&api.EmbedField{
+			Name:  "repoName",
+			Value: data.Source.RepoSource.RepoName,
+		},
+		&api.EmbedField{
+			Name:  "status",
+			Value: data.Status,
+		},
+		&api.EmbedField{
+			Name:  "logs",
+			Value: data.LogURL,
+		},
 	}
 
-	msg := tgbotapi.NewMessage(int64(985052364), message)
-
-	bot.Send(msg)
+	sendToDiscord(message, data.Status)
 	return nil
 }

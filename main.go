@@ -64,7 +64,7 @@ type PubSubMessage struct {
 	Data []byte `json:"data"`
 }
 
-func sendToDiscord(data []*api.EmbedField, status string) {
+func sendToDiscord(data []*api.EmbedField, status string) error {
 	logger := logrus.New()
 	colours := map[string]int{}
 	colours["QUEUED"] = 15258703
@@ -79,6 +79,7 @@ func sendToDiscord(data []*api.EmbedField, status string) {
 	webhook, err := disgohook.NewWebhookClientByToken(nil, logger, "webhook token")
 	if err != nil {
 		logger.Errorf("failed to create webhook: %s", err)
+		return err
 
 	}
 	var colour int = colours[status]
@@ -94,8 +95,11 @@ func sendToDiscord(data []*api.EmbedField, status string) {
 	)
 	if err != nil {
 		logger.Errorf("failed to send webhook message: %s", err)
+		return err
 
 	}
+
+	return nil
 }
 
 // HelloPubSub consumes a Pub/Sub message.
@@ -124,6 +128,8 @@ func HelloPubSub(ctx context.Context, m PubSubMessage) error {
 		},
 	}
 
-	sendToDiscord(message, data.Status)
+	if err := sendToDiscord(message, data.Status); err != nil {
+		return err
+	}
 	return nil
 }
